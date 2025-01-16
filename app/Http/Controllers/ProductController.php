@@ -41,11 +41,11 @@ class ProductController extends Controller
                     }),
                 ];
             })
-            ->values(); // Convert to a collection of arrays.
+            ->values();
 
         //return $attributeValues;
 
-        // Pass the data to the Inertia view
+        
         return Inertia::render('Product', [
             'attributeValues' => $attributeValues,
         ]);
