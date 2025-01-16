@@ -26,7 +26,6 @@ const submitForm = () => {
       form.reset();
     },
     onError: (errors) => {
-      // Handle form errors (e.g., display error messages)
       console.log('Form submission failed', errors);
     }
   });
@@ -72,7 +71,7 @@ const deleteAttr = (id) => {
               <span v-if="form.errors.name" class="text-red-500 text-xs mt-1">{{ form.errors.name }}</span>
             </div>
 
-            <div v-for="(value, index) in form.values" :key="index" class="mb-4">
+            <div v-for="(value, index) in form.values" :key="index" class="mb-4 relative">
               <label :for="'value_' + index" class="block text-gray-700 text-sm font-bold mb-2">Value {{ index + 1
                 }}</label>
               <input v-model="form.values[index]" :id="'value_' + index" type="text"
@@ -81,6 +80,15 @@ const deleteAttr = (id) => {
               <span v-if="form.errors.values && form.errors.values[index]" class="text-red-500 text-xs mt-1">
                 {{ form.errors.values[index] }}
               </span>
+              <div class="absolute top-[26px] -right-[38px]">
+                <button type="button" @click="form.values.splice(index, 1)"
+                  class="text-red-500 hover:text-red-700 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+
+                </button>
+              </div>
             </div>
 
             <div class="flex items-center justify-between">
@@ -94,7 +102,8 @@ const deleteAttr = (id) => {
             </div>
           </form>
         </div>
-        <div class="attr_list">
+        <div class="attr_list_wrapper">
+          <div class="attr_list p-5 bg-white shadow-md rounded">
           <h1 class="text-2xl font-bold mb-4">Attribute List</h1>
           <table class="table">
             <thead>
@@ -120,6 +129,7 @@ const deleteAttr = (id) => {
               </tr>
             </tbody>
           </table>
+        </div>
         </div>
       </div>
     </div>
