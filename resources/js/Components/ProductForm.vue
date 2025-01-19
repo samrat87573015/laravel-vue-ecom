@@ -70,16 +70,18 @@ const removeVariation = (index) => {
 
 const handleImageUpload = (event, variationIndex) => {
   const file = event.target.files[0];
-  form.variations[variationIndex].image_path = file; 
+  if (file) {
+    form.variations[variationIndex].image = file; // Ensure you update the correct property
+  }
 };
 
 const submit = () => {
   form.post(route("products.store"), {
     onSuccess: () => {
-        toast.success("Product created successfully!"); // Show success toast
-        setTimeout(() => {
-          router.get(route('admin.products.index')); // Redirect to the products index page after the toast
-        }, 2000);
+      toast.success("Product created successfully!"); // Show success toast
+      setTimeout(() => {
+        router.get(route('admin.products.index')); // Redirect to the products index page after the toast
+      }, 2000);
     },
     onError: () => {
       toast.error("There was an error creating the product."); // Show error toast
@@ -238,29 +240,30 @@ const submit = () => {
               <div class="form-control">
                 <label for="variation-image" class="label font-medium">Image</label>
                 <input :id="'variation-image-' + index" type="file" @change="(e) => handleImageUpload(e, index)"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 mb-5" />
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 mb-5" />
                 <span v-if="form.errors[`variations.${index}.image_path`]" class="text-error text-sm">{{
                   form.errors[`variations.${index}.image_path`] }}</span>
               </div>
 
-              <!-- Add Variation Button -->
-              <button type="button" @click="addVariation"
-                class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
-                <PlusIcon class="h-5 w-5 mr-2" />
-                Add Variation
-              </button>
+
             </div>
+            <!-- Add Variation Button -->
+            <button type="button" @click="addVariation"
+              class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+              <PlusIcon class="h-5 w-5 mr-2" />
+              Add Variation
+            </button>
           </div>
 
 
 
 
-            <div class="mt-8 flex justify-end">
-              <button type="submit"
-                class="inline-flex items-center px-6 py-3 text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
-                Publish
-              </button>
-            </div>
+          <div class="mt-8 flex justify-end">
+            <button type="submit"
+              class="inline-flex items-center px-6 py-3 text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+              Publish
+            </button>
+          </div>
         </form>
       </div>
     </div>
