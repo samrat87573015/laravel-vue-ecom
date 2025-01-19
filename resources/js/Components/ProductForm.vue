@@ -12,12 +12,13 @@ import {
 } from "lucide-vue-next";
 
 const props = defineProps({
-    attributeValues: Array, // Array of all attributes and their values
+    attributeValues: Array,
 });
 
 const activeTab = ref("general");
+const defaultImageName = ref("");
+const variationImageNames = ref([]);
 
-// Store selected attributes and their values
 const selectedAttributes = ref(
     props.attributeValues.map((attr) => ({
         attribute_name: attr.attribute_name,
@@ -30,24 +31,25 @@ const form = useForm({
     description: "",
     price: "",
     default_image: null,
+    default_image_preview: null,
     stock: "",
     variations: [
         {
             price: "",
             stock: "",
-            image: null,
+            image_path: null,
+            image_preview: null,
             attributes: [],
         },
     ],
 });
 
-// Sync variation attributes with selected attributes
 watch(
     selectedAttributes,
     (newAttributes) => {
         form.variations.forEach((variation) => {
             variation.attributes = newAttributes
-                .filter((attr) => attr.values.length > 0) // Only include selected attributes
+                .filter((attr) => attr.values.length > 0)
                 .map((attr) => ({
                     attribute_name: attr.attribute_name,
                     attribute_value_id: "",
@@ -57,11 +59,46 @@ watch(
     { deep: true }
 );
 
+const handleDefaultImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        form.default_image = file;
+        form.default_image_preview = URL.createObjectURL(file);
+        defaultImageName.value = file.name;
+    }
+};
+
+const handleVariationImageUpload = (event, index) => {
+    const file = event.target.files[0];
+    if (file) {
+        // Set the actual file in the form data
+        form.variations[index].image_path = file;
+        form.variations[index].image_preview = URL.createObjectURL(file);
+        if (!variationImageNames.value[index]) {
+            variationImageNames.value = [...variationImageNames.value];
+        }
+        variationImageNames.value[index] = file.name;
+    }
+};
+
+const removeDefaultImage = () => {
+    form.default_image = null;
+    form.default_image_preview = null;
+    defaultImageName.value = "";
+};
+
+const removeVariationImage = (index) => {
+    form.variations[index].image_path = null;
+    form.variations[index].image_preview = null;
+    variationImageNames.value[index] = "";
+};
+
 const addVariation = () => {
     form.variations.push({
         price: "",
         stock: "",
-        image: null,
+        image_path: null,
+        image_preview: null,
         attributes: selectedAttributes.value
             .filter((attr) => attr.values.length > 0)
             .map((attr) => ({
@@ -69,27 +106,77 @@ const addVariation = () => {
                 attribute_value_id: "",
             })),
     });
+    variationImageNames.value.push("");
 };
 
 const removeVariation = (index) => {
+    if (form.variations[index].image_preview) {
+        URL.revokeObjectURL(form.variations[index].image_preview);
+    }
     form.variations.splice(index, 1);
-};
-
-const handleImageUpload = (event, variationIndex) => {
-    const file = event.target.files[0];
-    form.variations[variationIndex].image_path = file;
+    variationImageNames.value.splice(index, 1);
 };
 
 const submit = () => {
+    const formData = new FormData();
+    
+    // Append basic product information
+    formData.append('name', form.name);
+    formData.append('description', form.description);
+    formData.append('price', form.price);
+    formData.append('stock', form.stock);
+
+    // Append default image if exists
+    if (form.default_image) {
+        formData.append('default_image', form.default_image);
+    }
+
+    // Handle variations differently - append each variation field separately
+    form.variations.forEach((variation, index) => {
+        formData.append(`variations[${index}][price]`, variation.price);
+        formData.append(`variations[${index}][stock]`, variation.stock);
+        
+        // Append variation attributes
+        variation.attributes.forEach((attr, attrIndex) => {
+            formData.append(
+                `variations[${index}][attributes][${attrIndex}][attribute_name]`, 
+                attr.attribute_name
+            );
+            formData.append(
+                `variations[${index}][attributes][${attrIndex}][attribute_value_id]`, 
+                attr.attribute_value_id
+            );
+        });
+
+        // Append variation image if exists - fixed condition to check image_path
+        if (variation.image_path) {
+            formData.append(`variations[${index}][image_path]`, variation.image_path);
+        }
+    });
+
+    // Submit using POST request with formData
     form.post(route("products.store"), {
+        forceFormData: true,
+        preserveScroll: true,
         onSuccess: () => {
-            toast.success("Product created successfully!"); // Show success toast
+            // Clean up preview URLs
+            if (form.default_image_preview) {
+                URL.revokeObjectURL(form.default_image_preview);
+            }
+            form.variations.forEach(variation => {
+                if (variation.image_preview) {
+                    URL.revokeObjectURL(variation.image_preview);
+                }
+            });
+            
+            toast.success("Product created successfully!");
             setTimeout(() => {
-                router.get(route("admin.products.index")); // Redirect to the products index page after the toast
+                router.get(route("admin.products.index"));
             }, 2000);
         },
-        onError: () => {
-            toast.error("There was an error creating the product."); // Show error toast
+        onError: (errors) => {
+            console.error(errors);
+            toast.error("There was an error creating the product.");
         },
     });
 };
@@ -217,16 +304,51 @@ const submit = () => {
                                     class="block text-sm font-medium text-gray-700 mb-2"
                                     >Default Image</label
                                 >
-                                <input
-                                    id="default_image"
-                                    type="file"
-                                    @change="
-                                        (e) =>
-                                            (form.default_image =
-                                                e.target.files[0])
-                                    "
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                                />
+                                <div class="space-y-2">
+                                    <!-- Add a container for the file input and selected file info -->
+                                    <div class="relative">
+                                        <div
+                                            v-if="!form.default_image"
+                                            class="flex items-center"
+                                        >
+                                            <input
+                                                id="default_image"
+                                                type="file"
+                                                @change="
+                                                    handleDefaultImageUpload
+                                                "
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                            />
+                                        </div>
+                                        <div
+                                            v-else
+                                            class="flex items-center space-x-2 bg-gray-50 p-3 rounded-md"
+                                        >
+                                            <span
+                                                class="text-sm text-gray-600"
+                                                >{{ defaultImageName }}</span
+                                            >
+                                            <button
+                                                type="button"
+                                                @click="removeDefaultImage"
+                                                class="text-red-500 hover:text-red-700"
+                                            >
+                                                <XIcon class="h-5 w-5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <!-- Image preview -->
+                                    <div
+                                        v-if="form.default_image_preview"
+                                        class="mt-2"
+                                    >
+                                        <img
+                                            :src="form.default_image_preview"
+                                            class="h-32 w-32 object-cover rounded-lg"
+                                            alt="Default image preview"
+                                        />
+                                    </div>
+                                </div>
                                 <p
                                     v-if="form.errors.default_image"
                                     class="mt-2 text-sm text-red-600"
@@ -411,27 +533,73 @@ const submit = () => {
                             <!-- Image Input -->
                             <div class="form-control">
                                 <label
-                                    for="variation-image"
-                                    class="label font-medium"
+                                    :for="'variation-image_path-' + index"
+                                    class="block text-sm font-medium text-gray-700 mb-2"
                                     >Image</label
                                 >
-                                <input
-                                    :id="'variation-image-' + index"
-                                    type="file"
-                                    @change="(e) => handleImageUpload(e, index)"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 mb-5"
-                                />
+                                <div class="space-y-2">
+                                    <!-- Add a container for the file input and selected file info -->
+                                    <div class="relative">
+                                        <div
+                                            v-if="!variation.image_path"
+                                            class="flex items-center"
+                                        >
+                                            <input
+                                                :id="'variation-image_path-' + index"
+                                                type="file"
+                                                @change="
+                                                    (e) =>
+                                                        handleVariationImageUpload(
+                                                            e,
+                                                            index
+                                                        )
+                                                "
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                            />
+                                        </div>
+                                        <div
+                                            v-else
+                                            class="flex items-center space-x-2 bg-gray-50 p-3 rounded-md"
+                                        >
+                                            <span
+                                                class="text-sm text-gray-600"
+                                                >{{
+                                                    variationImageNames[index]
+                                                }}</span
+                                            >
+                                            <button
+                                                type="button"
+                                                @click="
+                                                    () =>
+                                                        removeVariationImage(
+                                                            index
+                                                        )
+                                                "
+                                                class="text-red-500 hover:text-red-700"
+                                            >
+                                                <XIcon class="h-5 w-5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <!-- Image preview -->
+                                    <div
+                                        v-if="variation.image_preview"
+                                        class="mt-2"
+                                    >
+                                        <img
+                                            :src="variation.image_preview"
+                                            class="h-32 w-32 object-cover rounded-lg"
+                                            alt="Variation image preview"
+                                        />
+                                    </div>
+                                </div>
                                 <span
                                     v-if="
-                                        form.errors[
-                                            `variations.${index}.image_path`
-                                        ]
+                                        form.errors[`variations.${index}.image_path`]
                                     "
                                     class="text-error text-sm"
                                     >{{
-                                        form.errors[
-                                            `variations.${index}.image_path`
-                                        ]
+                                        form.errors[`variations.${index}.image_path`]
                                     }}</span
                                 >
                             </div>
